@@ -14,7 +14,12 @@ document.addEventListener('DOMContentLoaded', function() {
       // Remove extra blank lines
       .replace(/\n\s*\n\s*\n/g, '\n\n')
       // Clean up bullet points with asterisks
-      .replace(/^\s*\*\s+/gm, '• ');
+      .replace(/^\s*\*\s+/gm, '• ')
+      // Remove markdown headers (###, ##, #) - we'll handle our own formatting
+      .replace(/^#{1,6}\s+/gm, '')
+      // Remove markdown formatting that we don't want to display
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/\*([^*]+)\*/g, '$1');
     
     // Extract all issues
     const issues = [];
@@ -57,19 +62,42 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Create the report
     let actionableReport = `
-      <h2>Specific UI/UX Issues & Actionable Recommendations</h2>
+      <h2>UI/UX Issues & Recommendations</h2>
     `;
     
     if (issues.length > 0) {
       actionableReport += `<div class="issues-container">`;
       
       issues.forEach((issue, index) => {
-        // Format the issue as a card
+        // Parse the issue to extract WHAT, WHY, HOW if structured
+        const structuredIssue = parseStructuredIssue(issue);
+        
+        // Determine priority based on content
+        let priorityLevel = 'MEDIUM';
+        let cardClass = 'medium-issue-card';
+        
+        if (issue.includes('[CRITICAL]')) {
+          priorityLevel = 'CRITICAL';
+          cardClass = 'critical-issue-card';
+        } else if (issue.includes('[HIGH]')) {
+          priorityLevel = 'HIGH';
+          cardClass = 'high-issue-card';
+        } else if (issue.includes('[ACCESSIBILITY]')) {
+          priorityLevel = 'ACCESSIBILITY';
+          cardClass = 'accessibility-issue-card';
+        } else if (issue.includes('[MEDIUM]')) {
+          priorityLevel = 'MEDIUM';
+          cardClass = 'medium-issue-card';
+        } else if (issue.includes('[LOW]')) {
+          priorityLevel = 'LOW';
+          cardClass = 'low-issue-card';
+        }
+        
         actionableReport += `
-          <div class="issue-card">
-            <div class="issue-number">${index + 1}</div>
+          <div class="${cardClass}">
+            <div class="priority-badge">${priorityLevel}</div>
             <div class="issue-content">
-              <div class="issue-text">${highlightTechnicalTerms(issue)}</div>
+              ${structuredIssue.formatted}
             </div>
           </div>
         `;
@@ -79,8 +107,38 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
       // Fallback if no issues were extracted
       actionableReport += `
-        <p>No specific issues could be extracted from the analysis. Please try again with a different interface or adjust the prompt.</p>
+        <div class="no-critical-issues">
+          <div class="success-icon">✓</div>
+          <h3>No Major Issues Found</h3>
+          <p>This interface appears to follow good usability practices. Any existing issues are likely minor and don't significantly impact user experience.</p>
+        </div>
       `;
+    }
+
+    // Helper function to parse structured issues
+    function parseStructuredIssue(issue) {
+      const lines = issue.split('\n').filter(line => line.trim());
+      let formatted = '';
+      
+      lines.forEach(line => {
+        line = line.trim();
+        if (line.toLowerCase().includes('what:') || line.toLowerCase().includes('1.')) {
+          formatted += `<div class="issue-what"><strong>ISSUE:</strong> ${line.replace(/^(what:|1\.)\s*/i, '')}</div>`;
+        } else if (line.toLowerCase().includes('why:') || line.toLowerCase().includes('2.')) {
+          formatted += `<div class="issue-why"><strong>IMPACT:</strong> ${line.replace(/^(why:|2\.)\s*/i, '')}</div>`;
+        } else if (line.toLowerCase().includes('how:') || line.toLowerCase().includes('3.')) {
+          formatted += `<div class="issue-how"><strong>FIX:</strong> ${line.replace(/^(how:|3\.)\s*/i, '')}</div>`;
+        } else if (line.length > 10) {
+          formatted += `<div class="issue-description">${highlightTechnicalTerms(line)}</div>`;
+        }
+      });
+      
+      // If not structured, just format as a single block
+      if (!formatted) {
+        formatted = `<div class="issue-description">${highlightTechnicalTerms(issue)}</div>`;
+      }
+      
+      return { formatted };
     }
     
     // Function to highlight technical terms and measurements
@@ -109,34 +167,132 @@ document.addEventListener('DOMContentLoaded', function() {
         .issues-container {
           display: flex;
           flex-direction: column;
-          gap: 16px;
+          gap: 20px;
         }
         
-        .issue-card {
-          display: flex;
-          background-color: #f8f9fa;
-          border-radius: 8px;
+        .critical-issue-card {
+          background-color: #fed7d7;
+          border: 2px solid #e53e3e;
+          border-radius: 12px;
           overflow: hidden;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
         
-        .issue-number {
-          background-color: var(--primary);
+        .high-issue-card {
+          background-color: #fef5e7;
+          border: 2px solid #ed8936;
+          border-radius: 12px;
+          overflow: hidden;
+          box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .accessibility-issue-card {
+          background-color: #e6fffa;
+          border: 2px solid #38b2ac;
+          border-radius: 12px;
+          overflow: hidden;
+          box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .medium-issue-card {
+          background-color: #ebf4ff;
+          border: 2px solid #4299e1;
+          border-radius: 12px;
+          overflow: hidden;
+          box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .low-issue-card {
+          background-color: #f7fafc;
+          border: 2px solid #a0aec0;
+          border-radius: 12px;
+          overflow: hidden;
+          box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .priority-badge {
           color: white;
-          font-weight: 600;
-          padding: 16px 12px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          min-width: 40px;
+          font-weight: 700;
+          font-size: 12px;
+          padding: 8px 12px;
+          text-align: center;
+          letter-spacing: 0.5px;
+        }
+        
+        .critical-issue-card .priority-badge {
+          background-color: #e53e3e;
+        }
+        
+        .high-issue-card .priority-badge {
+          background-color: #ed8936;
+        }
+        
+        .accessibility-issue-card .priority-badge {
+          background-color: #38b2ac;
+        }
+        
+        .medium-issue-card .priority-badge {
+          background-color: #4299e1;
+        }
+        
+        .low-issue-card .priority-badge {
+          background-color: #a0aec0;
         }
         
         .issue-content {
-          padding: 16px;
-          flex: 1;
+          padding: 20px;
         }
         
-        .issue-text {
+        .issue-what {
+          margin-bottom: 12px;
+          padding: 8px;
+          background-color: #ebf4ff;
+          border-left: 4px solid #4299e1;
+          border-radius: 4px;
+        }
+        
+        .issue-why {
+          margin-bottom: 12px;
+          padding: 8px;
+          background-color: #fef5e7;
+          border-left: 4px solid #ed8936;
+          border-radius: 4px;
+        }
+        
+        .issue-how {
+          margin-bottom: 12px;
+          padding: 8px;
+          background-color: #f0fff4;
+          border-left: 4px solid #48bb78;
+          border-radius: 4px;
+        }
+        
+        .issue-description {
+          line-height: 1.6;
+          margin-bottom: 8px;
+        }
+        
+        .no-critical-issues {
+          text-align: center;
+          padding: 40px 20px;
+          background-color: #f0fff4;
+          border-radius: 12px;
+          border: 2px solid #c6f6d5;
+        }
+        
+        .success-icon {
+          font-size: 48px;
+          margin-bottom: 16px;
+        }
+        
+        .no-critical-issues h3 {
+          color: #2d3748;
+          margin-bottom: 8px;
+          font-size: 18px;
+        }
+        
+        .no-critical-issues p {
+          color: #4a5568;
           line-height: 1.5;
         }
         
