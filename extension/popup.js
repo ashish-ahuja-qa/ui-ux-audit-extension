@@ -64,27 +64,6 @@ document.addEventListener('DOMContentLoaded', function() {
       actionableReport += `<div class="issues-container">`;
       
       issues.forEach((issue, index) => {
-        // Try to identify if this issue has a clear element, problem, and solution
-        const parts = {
-          element: null,
-          problem: null,
-          solution: null
-        };
-        
-        // Look for phrases that indicate a solution
-        const solutionPatterns = [
-          /(?:recommend|suggest|should|could|consider|change|increase|decrease|adjust|modify|improve|update|replace|add|remove)\s+(.+?)(?=\.|\s*$)/i,
-          /(?:to\s+)(?:ensure|improve|enhance|achieve|provide|create|make|get)(.+?)(?=\.|\s*$)/i
-        ];
-        
-        for (const pattern of solutionPatterns) {
-          const match = issue.match(pattern);
-          if (match && match[1]) {
-            parts.solution = match[0];
-            break;
-          }
-        }
-        
         // Format the issue as a card
         actionableReport += `
           <div class="issue-card">
@@ -261,6 +240,7 @@ document.addEventListener('DOMContentLoaded', function() {
           }
           
           const data = await res.json();
+          console.log("Received response from backend:", data);
           
           // Format and display results
           const formattedResult = formatAuditResults(data.result);
