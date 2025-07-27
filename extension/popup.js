@@ -368,58 +368,63 @@ document.addEventListener('DOMContentLoaded', function() {
     html2pdf().from(container).set(opt).save();
   }
 
+  // Check for existing audit results on popup open (but only for current page)
+  checkForExistingResults();
+  
+  // Poll for new results while popup is open
+  let pollInterval = null;
+
   auditBtn.addEventListener('click', async function() {
-    // Show loading state
-    loading.style.display = 'block';
-    results.style.display = 'none';
-    downloadContainer.style.display = 'none';
-    auditBtn.disabled = true;
-    
     try {
-      // Get the active tab
+      // Get the active tab and capture screenshot
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       
-      // Capture screenshot
-      chrome.tabs.captureVisibleTab(null, { format: "png" }, async (dataUrl) => {
-        try {
-          console.log("Screenshot captured, sending to backend");
-          
-          // Send to backend
-          const res = await fetch("http://localhost:5000/audit", {
-            method: "POST",
-            body: JSON.stringify({ image: dataUrl }),
-            headers: { "Content-Type": "application/json" }
-          });
-          
-          if (!res.ok) {
-            throw new Error(`Server responded with status: ${res.status}`);
+      chrome.tabs.captureVisibleTab(null, { format: "png" }, (dataUrl) => {
+        // Send to background script for processing
+        chrome.runtime.sendMessage({
+          action: 'startAudit',
+          imageData: dataUrl,
+          pageUrl: tab.url,
+          pageTitle: tab.title
+        }, function(response) {
+          if (response && response.success) {
+            // Show success message
+            results.innerHTML = `
+              <div class="background-processing">
+                <div class="processing-spinner"></div>
+                <h3>Priority Audit Started!</h3>
+                <p>Your comprehensive UI/UX audit is now processing in the background with priority categorization.</p>
+                <p><strong>Results will appear here automatically when complete.</strong></p>
+                <p class="polling-status">Checking for results...</p>
+                <button id="closePopup" class="secondary-btn">Continue Working</button>
+              </div>
+            `;
+            results.style.display = 'block';
+            loading.style.display = 'none';
+            downloadContainer.style.display = 'none';
+            
+            // Add close popup functionality
+            document.getElementById('closePopup').addEventListener('click', function() {
+              window.close();
+            });
+            
+            // Start polling for results
+            startPollingForResults();
+            
+            // Update button text temporarily
+            const originalText = auditBtn.innerHTML;
+            auditBtn.innerHTML = 'Audit Started!';
+            auditBtn.disabled = true;
+            
+            // Reset button after a few seconds
+            setTimeout(() => {
+              auditBtn.disabled = false;
+              auditBtn.innerHTML = originalText;
+            }, 3000);
+          } else {
+            throw new Error('Failed to start background audit');
           }
-          
-          const data = await res.json();
-          console.log("Received response from backend:", data);
-          
-          // Format and display results
-          const formattedResult = formatAuditResults(data.result);
-          results.innerHTML = formattedResult;
-          results.style.display = 'block';
-          downloadContainer.style.display = 'block';
-          console.log("Audit completed successfully");
-        } catch (error) {
-          console.error("Error:", error);
-          results.innerHTML = `
-            <div style="padding: 20px; text-align: center; color: #dc3545;">
-              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="#dc3545">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <h3 style="margin-top: 16px;">Error</h3>
-              <p>${error.message}</p>
-            </div>
-          `;
-          results.style.display = 'block';
-        } finally {
-          loading.style.display = 'none';
-          auditBtn.disabled = false;
-        }
+        });
       });
     } catch (error) {
       console.error("Error:", error);
@@ -434,9 +439,79 @@ document.addEventListener('DOMContentLoaded', function() {
       `;
       results.style.display = 'block';
       loading.style.display = 'none';
-      auditBtn.disabled = false;
     }
   });
+  
+  function checkForExistingResults() {
+    // Get current page URL first
+    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+      const currentUrl = tabs[0].url;
+      
+      // Check if there are any recent audit results for this specific page
+      chrome.runtime.sendMessage({ action: 'getLatestAuditResult' }, function(response) {
+        if (response && response.result && response.result.timestamp && response.result.pageUrl) {
+          // Only show results if they're for the current page and less than 2 hours old
+          const twoHoursAgo = Date.now() - (2 * 60 * 60 * 1000);
+          if (response.result.timestamp > twoHoursAgo && response.result.pageUrl === currentUrl) {
+            displayAuditResults(response.result);
+          }
+        }
+      });
+    });
+  }
+  
+  function displayAuditResults(auditData) {
+    const formattedResult = formatAuditResults(auditData.result);
+    results.innerHTML = formattedResult;
+    results.style.display = 'block';
+    downloadContainer.style.display = 'block';
+    
+    // Add timestamp
+    const timestamp = new Date(auditData.timestamp).toLocaleString();
+    const timestampDiv = document.createElement('div');
+    timestampDiv.className = 'audit-timestamp';
+    timestampDiv.innerHTML = `<p style="text-align: center; color: #6c757d; font-size: 12px; margin-top: 20px;">Priority audit completed: ${timestamp}</p>`;
+    results.appendChild(timestampDiv);
+    
+    // Stop polling once results are displayed
+    stopPollingForResults();
+  }
+  
+  function startPollingForResults() {
+    // Clear any existing polling
+    stopPollingForResults();
+    
+    // Poll every 2 seconds for new results
+    pollInterval = setInterval(() => {
+      // Get current page URL for comparison
+      chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+        const currentUrl = tabs[0].url;
+        
+        chrome.runtime.sendMessage({ action: 'getLatestAuditResult' }, function(response) {
+          if (response && response.result && response.result.timestamp && response.result.pageUrl) {
+            // Check if this is a new result for the current page
+            const resultTime = response.result.timestamp;
+            const currentTime = Date.now();
+            
+            // If result is very recent (within last 5 minutes) and for current page, show it
+            if (currentTime - resultTime < 5 * 60 * 1000 && response.result.pageUrl === currentUrl) {
+              displayAuditResults(response.result);
+            }
+          }
+        });
+      });
+    }, 2000); // Poll every 2 seconds
+  }
+  
+  function stopPollingForResults() {
+    if (pollInterval) {
+      clearInterval(pollInterval);
+      pollInterval = null;
+    }
+  }
+  
+  // Stop polling when popup is closed/unloaded
+  window.addEventListener('beforeunload', stopPollingForResults);
   
   // Add event listener for the download button
   downloadBtn.addEventListener('click', function() {
