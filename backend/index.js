@@ -19,7 +19,7 @@ app.post("/audit", async (req, res) => {
         {
           role: "user",
           content: [
-            { type: "text", text: "You are a UX consultant conducting a priority-based interface audit using a screenshot or UI design.\n\nYour goal is to identify real, practical UI/UX problems that actually frustrate users, cause confusion, block task completion, or violate accessibility needs.\n\nOnly include issues that meet one or more of these criteria:\n• Make users confused about what to do next\n• Prevent users from finding or using what they need\n• Force users to work harder than necessary\n• Cause users to make mistakes or get stuck\n• Create friction in completing core or common tasks\n• Make critical information hard to find\n• Hurt accessibility for screen readers, keyboard users, or colorblind users\n\nIgnore the following:\n• Minor spacing or visual tweaks\n• Theoretical or academic best practices\n• Features that would be nice to have\n• Cosmetic polish with no real usability impact\n\nOutput Requirements - For Each Issue Identified:\nList between 4 to 6 issues, ordered from most critical to least.\n\nEach issue should include:\n1. Priority Level - One of:\n[CRITICAL] – Blocks task completion or causes major confusion\n[HIGH] – Strongly disrupts ease of use or leads to errors\n[ACCESSIBILITY] – Creates a barrier for users with disabilities\n[MEDIUM] – Noticeably slows users down or creates minor frustration\n[LOW] – Noticed by advanced users but doesn't prevent success\n\n2. WHAT: Exact component or UI element causing the issue\n3. WHY: How it impacts user experience in a practical way\n4. HOW: Specific, realistic fix to eliminate or reduce the problem\n\nFocus on task completion, clarity, and usability, not visual trends. Always ask: Could this make someone fail or hesitate during a task? Prioritize issues that affect most users, especially new or mobile users.\n\nYour goal is not to make it prettier — your goal is to make it unblockably usable." },
+            { type: "text", text: "You are a UX auditor analyzing this interface. Your job is to find real problems that make users struggle.\n\n**EXAMPLES OF REAL PROBLEMS TO LOOK FOR:**\n\n**HIGH PRIORITY ISSUES:**\n- Navigation that's hard to find or confusing\n- Buttons that don't look clickable\n- Text that's too small to read easily\n- Important information buried or hidden\n- Forms with unclear labels or requirements\n- Broken visual hierarchy (unclear what's most important)\n- Inconsistent spacing that looks unprofessional\n- Elements that don't align properly\n- Poor contrast making text hard to read\n- Missing feedback for user actions\n\n**MEDIUM PRIORITY ISSUES:**\n- Inconsistent button styles\n- Unclear icon meanings\n- Information that's poorly organized\n- Inefficient workflows\n- Labels that could be clearer\n- Typography inconsistencies\n- Spacing that could be more consistent\n\n**WHAT MAKES A REAL PROBLEM:**\n- Users would notice it and be frustrated\n- It slows down task completion\n- It makes the interface look unprofessional\n- It creates confusion about what to do next\n- It violates common design patterns users expect\n\n**ANALYSIS APPROACH:**\n1. Scan the entire interface quickly\n2. Ask: \"What would frustrate me as a user here?\"\n3. Look for anything that stands out as wrong or inconsistent\n4. Focus on the most obvious problems first\n5. Don't overthink - trust your instincts\n\n**REPORT FORMAT:**\n[PRIORITY] Issue Description\n- Impact: How this hurts users\n- Fix: Specific solution\n\n**Be direct and practical. If something looks wrong, it probably is.**" },
             { type: "image_url", image_url: { url: image } }
           ]
         }
@@ -27,7 +27,21 @@ app.post("/audit", async (req, res) => {
       max_tokens: 1000
     });
     console.log("OpenAI response received successfully");
-    res.json({ result: result.choices[0].message.content });
+    
+    // Clean up the response to handle character encoding issues
+    let cleanedContent = result.choices[0].message.content
+      // Replace smart quotes with regular quotes
+      .replace(/[""]/g, '"')
+      .replace(/['']/g, "'")
+      // Replace em dashes and en dashes
+      .replace(/[—–]/g, '-')
+      // Replace other problematic Unicode characters
+      .replace(/[…]/g, '...')
+      // Normalize whitespace
+      .replace(/\u00A0/g, ' '); // Non-breaking space
+    
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.json({ result: cleanedContent });
   } catch (err) {
     console.error("Error:", err);
     res.status(500).json({ error: err.message });

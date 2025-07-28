@@ -34,7 +34,9 @@ async function startBackgroundAudit(imageData, pageUrl, pageTitle) {
     });
 
     // Send request to backend
-    const response = await fetch('http://localhost:5000/audit', {
+    //https://staging.backend.leadconnectorhq.com/sdet-platform/sdet/ui-ux-audit
+    const response = await fetch('http://localhost:5092/sdet-platform/sdet/ui-ux-audit', {
+    // const response = await fetch('http://localhost:5000/audit', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

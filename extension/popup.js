@@ -7,8 +7,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Function to format audit results with better structure
   function formatAuditResults(text) {
-    // Clean up the text first
+    // Clean up the text first and handle character encoding issues
     let formattedText = text
+      // Fix common character encoding issues first
+      .replace(/â€/g, '"')  // Fix mangled smart quotes
+      .replace(/â€™/g, "'") // Fix mangled apostrophes  
+      .replace(/â€œ/g, '"') // Fix opening smart quotes
+      .replace(/â€/g, '"')  // Fix closing smart quotes
+      .replace(/â€"/g, '-') // Fix em dashes
+      .replace(/Ã¡/g, 'á')  // Fix accented characters
+      .replace(/Ã©/g, 'é')
+      .replace(/Ã­/g, 'í')
+      .replace(/Ã³/g, 'ó')
+      .replace(/Ãº/g, 'ú')
       // Remove excess asterisks
       .replace(/\*\*/g, '')
       // Remove extra blank lines
@@ -143,6 +154,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Function to highlight technical terms and measurements
     function highlightTechnicalTerms(text) {
+      // Escape HTML first to prevent XSS
+      text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      
       // Highlight hex colors
       text = text.replace(/(#[0-9a-fA-F]{3,6})/g, '<span class="tech-color">$1</span>');
       
@@ -155,8 +169,8 @@ document.addEventListener('DOMContentLoaded', function() {
       // Highlight ratios
       text = text.replace(/(\d+(?:\.\d+)?:\d+(?:\.\d+)?)/g, '<span class="tech-measurement">$1</span>');
       
-      // Highlight specific UI elements with quotes
-      text = text.replace(/"([^"]+)"/g, '"<span class="ui-element">$1</span>"');
+      // Highlight specific UI elements with quotes (handle both regular and smart quotes)
+      text = text.replace(/[""]([^"""]+)["\"]/g, '"<span class="ui-element">$1</span>"');
       
       return text;
     }
