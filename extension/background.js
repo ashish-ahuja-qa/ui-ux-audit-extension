@@ -67,9 +67,12 @@ async function startBackgroundAudit(imageData, pageUrl, pageTitle) {
     });
 
     // Count critical and high priority issues for notification
-    const criticalCount = (data.result.match(/\[CRITICAL\]/g) || []).length;
-    const highCount = (data.result.match(/\[HIGH\]/g) || []).length;
-    const totalIssues = (data.result.match(/\[(CRITICAL|HIGH|ACCESSIBILITY|MEDIUM|LOW)\]/g) || []).length;
+    const criticalCount = (data.result.match(/\[CRITICAL\]/g) || []).length + 
+                         (data.result.toUpperCase().match(/PRIORITY:\s*CRITICAL/g) || []).length;
+    const highCount = (data.result.match(/\[HIGH\]/g) || []).length + 
+                     (data.result.toUpperCase().match(/PRIORITY:\s*HIGH/g) || []).length;
+    const totalIssues = (data.result.match(/\[(CRITICAL|HIGH|ACCESSIBILITY|MEDIUM|LOW)\]/g) || []).length + 
+                       (data.result.toUpperCase().match(/PRIORITY:\s*(CRITICAL|HIGH|ACCESSIBILITY|MEDIUM|LOW)/g) || []).length;
     
     let notificationMessage = `Found ${totalIssues} prioritized issues`;
     if (criticalCount > 0) {

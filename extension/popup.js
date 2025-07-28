@@ -87,19 +87,20 @@ document.addEventListener('DOMContentLoaded', function() {
         let priorityLevel = 'MEDIUM';
         let cardClass = 'medium-issue-card';
         
-        if (issue.includes('[CRITICAL]')) {
+        // Check for both [PRIORITY] and PRIORITY: PRIORITY formats
+        if (issue.includes('[CRITICAL]') || issue.toUpperCase().includes('PRIORITY: CRITICAL')) {
           priorityLevel = 'CRITICAL';
           cardClass = 'critical-issue-card';
-        } else if (issue.includes('[HIGH]')) {
+        } else if (issue.includes('[HIGH]') || issue.toUpperCase().includes('PRIORITY: HIGH')) {
           priorityLevel = 'HIGH';
           cardClass = 'high-issue-card';
-        } else if (issue.includes('[ACCESSIBILITY]')) {
+        } else if (issue.includes('[ACCESSIBILITY]') || issue.toUpperCase().includes('PRIORITY: ACCESSIBILITY')) {
           priorityLevel = 'ACCESSIBILITY';
           cardClass = 'accessibility-issue-card';
-        } else if (issue.includes('[MEDIUM]')) {
+        } else if (issue.includes('[MEDIUM]') || issue.toUpperCase().includes('PRIORITY: MEDIUM')) {
           priorityLevel = 'MEDIUM';
           cardClass = 'medium-issue-card';
-        } else if (issue.includes('[LOW]')) {
+        } else if (issue.includes('[LOW]') || issue.toUpperCase().includes('PRIORITY: LOW')) {
           priorityLevel = 'LOW';
           cardClass = 'low-issue-card';
         }
@@ -133,6 +134,11 @@ document.addEventListener('DOMContentLoaded', function() {
       
       lines.forEach(line => {
         line = line.trim();
+        // Skip priority lines as they're already shown in the header
+        if (line.toUpperCase().startsWith('PRIORITY:')) {
+          return;
+        }
+        
         if (line.toLowerCase().includes('what:') || line.toLowerCase().includes('1.')) {
           formatted += `<div class="issue-what"><strong>ISSUE:</strong> ${line.replace(/^(what:|1\.)\s*/i, '')}</div>`;
         } else if (line.toLowerCase().includes('why:') || line.toLowerCase().includes('2.')) {
